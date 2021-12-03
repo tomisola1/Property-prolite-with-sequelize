@@ -18,7 +18,4 @@ router.delete('/property/:id', auth_1.Auth, propertycontrollers_1.deleteProperty
 router.patch('/property/:id', auth_1.Auth, multer_1.upload.single('image_Url'), propertycontrollers_1.updateProperty);
 router.patch('/property/:id/sold', auth_1.Auth, propertycontrollers_1.updateStatus);
 router.get('/property/:id', auth_1.Auth, propertycontrollers_1.getSpecificProperty);
-// router.post('/upload', multerUploads, (req, res) => {
-//   console.log('req.file :', req.file);
-//   });
 exports.default = router;

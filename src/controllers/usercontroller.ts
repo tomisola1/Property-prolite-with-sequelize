@@ -1,79 +1,64 @@
 import { NextFunction,Request,Response }from 'express';
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
-import { pool } from '../database/database';
+import {users} from '../../models/user'
+import { profile } from './interface';
 import 'dotenv'
+// import AuthQueries from '../service/authservice';
 
 const secret = process.env.JWT_SECRET!
 const days = process.env.JWT_EXPIRES_IN!
 
 
-export async function userSignup(req:Request, res:Response){
+export async function userSignup(req:Request, res:Response): Promise<Response|void>{
     try {
 
-        const {first_name, last_name, email, phoneNumber, address, password} = req.body
-        const userPassword = await bcrypt.hash(password, 10)
-        const data = {
-            first_name,last_name, email, phoneNumber, address 
+        const {first_name, last_name, email, phoneNumber, address, password}: profile = req.body
+        const userPassword:string = await bcrypt.hash(password, 10)
+        const data = {first_name, last_name, email, phoneNumber, address, password:userPassword}
+        const user = await users.findOne({where:{email:email}})
+        if(user){
+            return res.status(400).send({message:'user already exists'})
         }
-        pool.query('SELECT * FROM users WHERE email = $1', [email], (error, result)=>{
-            if(error){
-                throw error;
-            }
-            if(result.rows.length){
-                return res.status(400).send('email already exists')
-            }
-            pool.query('INSERT INTO users (first_name,last_name, email, phoneNumber, address, password) VALUES ($1, $2, $3, $4, $5, $6)', [first_name, last_name, email, phoneNumber, address, userPassword], (error, result) =>{
-                if(error){
-                    throw error;
-                }
-                return res.status(201).send({
-                    status: 201,
-                    data: data,
-                    message:'successful registration'
-                })
-            })
-        })
+        const createdUser = await users.create(data)
+       return res.status(201).send({
+           message: "user created",
+           data: createdUser
+       })
+     
       
     } catch (error:any) {
         console.log(error);
         
-       res.send(error.message)
+       return res.send(error.message)
     } 
 }
 
-export async function userSignin(req:Request, res:Response){
+export async function userSignin(req:Request, res:Response):Promise<Response|void>{
     try {
-       const userEmail = req.body.email
-       const userpassword = req.body.password
-       pool.query('SELECT * FROM users WHERE email = $1', [userEmail], async (error, result) =>{
-           if(error){
-            throw error;
-           }
-           const { password } = result.rows[0]
-        //    console.log(result);
-           const validUser = await bcrypt.compare(userpassword, password)
-           const {id} =result.rows[0]
-           const {first_name,last_name, email, phonenumber, address } = result.rows[0]
-           const token = jwt.sign({id, email, phonenumber, address},secret, {
+       const userEmail: string = req.body.email
+       const userpassword: string = req.body.password
+       const user = await users.findOne({where:{email:userEmail}})
+       if(!user){
+        return res.status(404).send({message:'user does not exist'})
+       }
+           const { password } = user
+           const validUser:boolean = await bcrypt.compare(userpassword, password)
+
+           const token:string = jwt.sign(user.dataValues,secret, {
                expiresIn:days
            })
-           const data = {
-            first_name,last_name, email, phonenumber, address, token 
-          }
-           if(validUser){
-            return res.status(200).send({
-                status: 200,
-                data: data,
-                message:'successfully logged in'
-            })
-           }else{
-               res.send('invalid details')
+           if(!validUser){
+               return res.status(400).send({message:'invalid details'})
            }
-       })
-      
-       
+          
+              return res.status(200).send({
+                data: {token, user},
+                message:'successfully logged in'
+        
+           })
     } catch (error:any) {
+        console.log(error)
         res.send(error.message)
     }
 }

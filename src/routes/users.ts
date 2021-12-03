@@ -1,8 +1,8 @@
 import express, { NextFunction,Request,Response }from 'express';
 import { userSignin, userSignup } from '../controllers/usercontroller';
-import {createProperty, getAllProperty,updateProperty,getPropertyOfSpecificType, getSpecificProperty,deleteProperty,updateStatus} from '../controllers/propertycontrollers'
+import {createProperty, updateProperty, getAllProperty, deleteProperty, getSpecificProperty,getPropertyOfSpecificType,updateStatus} from '../controllers/propertycontrollers'
 import { Auth } from '../middleware.ts/auth';
-import { pool } from '../database/database';
+// import { pool } from '../database/database';
 import { upload } from '../utils/multer';
 const router = express.Router();
 

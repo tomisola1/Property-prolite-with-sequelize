@@ -2,10 +2,13 @@
   "name": "kobo-task",
   "version": "0.0.0",
   "private": true,
+
   "scripts": {
     "start": "nodemon ./bin/www",
-    "table": "node ./dist/database/index.js"
+    "test": "cross-env NODE_ENV=test jest --testTimeout=10000",
+    "db:create:test": "cross-env NODE_ENV=test npx sequelize-cli db:create"
   },
+
   "dependencies": {
     "@types/debug": "^4.1.7",
     "@types/dotenv": "^8.2.0",
@@ -30,10 +33,19 @@
     "multer": "^1.4.3",
     "nodemon": "^2.0.15",
     "pg": "^8.7.1",
+    "pg-hstore": "^2.3.4",
+    "sequelize": "^6.12.0-alpha.1",
     "typescript": "^4.4.4"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.2",
-    "@types/cookie-parser": "^1.4.2"
+    "@types/cookie-parser": "^1.4.2",
+    "@types/jest": "^27.0.3",
+    "@types/supertest": "^2.0.11",
+    "cross-env": "^7.0.3",
+    "jest": "^27.3.1",
+    "sequelize-cli": "^6.3.0",
+    "supertest": "^6.1.6",
+    "ts-jest": "^27.0.7"
   }
 }

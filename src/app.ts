@@ -6,10 +6,10 @@ import path from 'path';
 import cookieParser from 'cookie-parser';
 import logger from 'morgan';
 // import { uploader, cloudinaryConfig } from './utils/cloudinary'
-
+require('dotenv').config()
 // import indexRouter from './routes/index';
 import usersRouter from './routes/users';
-import { pool } from "./database/database";
+// import { pool } from "./database/database";
 
 var app = express();
 
@@ -47,6 +47,6 @@ app.use(function(
   // res.render('error');
 });
 
-pool.connect().then(() => console.log(`connected to DB`)).catch(err => console.log(err))
+// pool.connect().then(() => console.log(`connected to DB`)).catch(err => console.log(err))
 
-module.exports = app;
+export default app;

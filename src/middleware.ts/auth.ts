@@ -9,7 +9,7 @@ export function Auth(req:any, res:Response, next:NextFunction){
     return res.status(401).send('Please provide token')
   }
   if(token){
-    jwt.verify(token, secret, (error:any, decoded:any)=>{
+    jwt.verify(token, secret, (error:any, decoded:any):Response|void=>{
     if (error) {
         return res.status(401).send('The Token provided is invalid')
         }

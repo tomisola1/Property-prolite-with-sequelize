@@ -1,19 +1,32 @@
 import { NextFunction, query, Request, Response } from "express";
-import { pool } from "../database/database";
+// import { pool } from "../database/database";
 import cloudinary from "../utils/cloudinary";
+import { data, image } from "./interface";
+import {Property} from '../../models/property'
 
-export async function createProperty(req: any, res: Response) {
+interface RequestExtended extends Request {
+  user?: {};
+}
+interface user {
+  id?: String;
+}
+
+export async function createProperty(
+  req: RequestExtended,
+  res: Response
+): Promise<Response | void> {
   try {
-    const img_Url = await cloudinary.uploader.upload(req.file?.path || req.body.image_Url).catch(()=>{
-        return null
-    })
-    console.log(img_Url)
-    const { id } = req.user;
-    const { price, state, city, address, type } = req.body;
-    const status = "available";
-    const created_at = new Date();
-    const owner = id;
-    const image_Url =req.body.image_Url || img_Url?.secure_url;
+    const img_Url: image = await cloudinary.uploader
+      .upload(req.file?.path || req.body.image_Url)
+      .catch(() => {
+        return null;
+      });
+    const { id }: user = req.user as user;
+    const { price, state, city, address, type }: data = req.body;
+    const status: string = "available";
+    const created_at: object = new Date();
+    const owner = id as string;
+    const image_url: string = req.body.image_Url || img_Url?.secure_url || null;
     const data = {
       owner,
       status,
@@ -23,23 +36,15 @@ export async function createProperty(req: any, res: Response) {
       address,
       type,
       created_at,
-      image_Url,
+      image_url,
     };
-
-    pool.query(
-      "INSERT INTO property (owner,status,price,state,city,address,type,created_at,image_Url) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)",
-      [id, status, price, state, city, address, type, created_at, image_Url],
-      (error, result) => {
-        if (error) {
-          console.log(error);
-        }
-
-        return res.status(201).send({
-          status: "success",
-          data,
-        });
-      }
-    );
+    const property = await Property.create(data)
+    
+    return res.status(201).send({
+    status: "success",
+    data: { property },
+    });
+    
   } catch (error: any) {
     console.log(error);
 
@@ -47,171 +52,141 @@ export async function createProperty(req: any, res: Response) {
   }
 }
 
-export function updateProperty(req: any, res: Response) {
+export async function updateProperty(req: RequestExtended, res: Response):Promise<any> {
   try {
     let image;
 
-    const propertyId = req.params.id;
-    const { id } = req.user;
+    const propertyId: string = req.params.id;
+    const { id }: user = req.user as user;
+    const foundProperty = await Property.findOne({where:{id:propertyId, owner:id}})
+    
+    if (!foundProperty) {
+      return res.send("there is no property with this id");
+    }
+    const { price, state, city, address, type, image_url } = foundProperty;
 
-    pool.query(
-      "SELECT * FROM property WHERE id = $1 AND owner = $2",
-      [propertyId, id],
-      async (error, result) => {
-        if (error) {
-          console.log(error);
-          throw error;
-        }
-        // console.log(result);
+    if (req.file) {
+      const img_Url = await cloudinary.uploader.upload(req.file?.path);
+      image = img_Url.secure_url;
+    }
 
-        if (result.rows.length === 0) {
-          res.send("there is no property with this id");
-        }
-        // console.log(result.rows);
-
-        const { price, state, city, address, type, image_url } = result.rows[0];
-
-        if (req.file) {
-          const img_Url = await cloudinary.uploader.upload(req.file?.path);
-          console.log(img_Url);
-          image = img_Url.secure_url;
-          console.log(image);
-        }
-
-        pool.query(
-          "UPDATE property SET(price,state,city,address,type,image_Url)= ($1,$2,$3,$4,$5,$6)",
-          [
-            req.body.price || price,
-            req.body.state || state,
-            req.body.city || city,
-            req.body.address || address,
-            req.body.type || type,
-            image || image_url,
-          ],
-          (error, result) => {
-            if (error) {
-              throw error;
-            }
-            console.log(result);
-            if (result.rowCount > 0) {
-              return res.send({
-                status: "success",
-              });
-            } else {
-              return "update failed";
-            }
-          }
-        );
-      }
-    );
+    const data = {
+      price:req.body.price || price,
+      state:req.body.state || state,
+      city:req.body.city || city,
+      address:req.body.address || address,
+      type:req.body.type || type,
+      image_url:image || image_url
+    };
+    const updatedProperty = await Property.update(data,{where:{id:propertyId}, returning:true,plain:true})
+  
+    
+      return res.send({
+        status: "success",
+        data:updatedProperty[1]
+      });
+  } catch (error: any) {
+    return res.send(error.message);
+  }
+}
+export async function getAllProperty(
+  req: Request,
+  res: Response
+): Promise<any> {
+  try {
+    const property:any = await Property.findAll();
+    
+      return res.status(200).send({
+        status: "success",
+        data: property,
+      });
+    
   } catch (error: any) {
     res.send(error.message);
   }
 }
-export function getAllProperty(req: Request, res: Response) {
+
+
+
+export async function deleteProperty(
+  req: RequestExtended,
+  res: Response
+): Promise<any> {
   try {
-    pool.query("SELECT  property.*, email, phoneNumber FROM users JOIN property ON users.id = property.owner", (error, result) => {
-      if (error) {
-        throw error;
-      }
-      return res.send({
-        status: "success",
-        data: result.rows,
-      });
+    const propertyId: string = req.params.id;
+    const { id }: user = req.user as user;
+    const deletedProperty: any = await Property.destroy({where:{id:propertyId, owner:id},returning:true,plain:true});
+   
+    return res.status(200).send({
+      status: "deleted successfully",
     });
   } catch (error: any) {
     res.send(error.message);
   }
 }
-export function deleteProperty(req: any, res: Response) {
+export async function getSpecificProperty(
+  req: Request,
+  res: Response
+): Promise<any> {
   try {
-    const propertyId = req.params.id;
-    const { id } = req.user;
-    pool.query(
-      "DELETE FROM property WHERE id = $1 AND owner = $2",
-      [propertyId, id],
-      (error, result) => {
-        if (error) {
-          throw error;
-        }
-        return res.send({
-          status: "deleted successfully",
-          data: result.rows,
-        });
-      }
-    );
+    const propertyId: string = req.params.id;
+    const property: any = await Property.findOne({where:{id:propertyId}});
+
+    if (!property) {
+      return res.status(400).send({message:"This property does not exist"});
+    }
+
+    return res.status(200).send({
+      status: "success",
+      data: property,
+    });
   } catch (error: any) {
+    console.log(error);
     res.send(error.message);
   }
 }
-export function getSpecificProperty(req: Request, res: Response) {
+export async function getPropertyOfSpecificType(
+  req: Request,
+  res: Response
+): Promise<any> {
   try {
-    const propertyId = req.params.id;
-    pool.query(
-      "SELECT property.*, email, phoneNumber FROM users JOIN property ON users.id = property.owner WHERE property.id = $1",
-      [propertyId],
-      (error, result) => {
-        if (error) {
-          throw error;
-        }
-        return res.send({
-          status: "success",
-          data: result.rows,
-        });
-      }
-    );
-  } catch (error) {
+    const { type } = req.query;
+    const property: any = await Property.findAll({where:{type:type}});
+    if (property.length===0) {
+      return res.status(404).send({message:"Property of this type does not exist"});
+    }
+    return res.send({
+      status: "success",
+      data: property,
+    });
+  } catch (error: any) {
     console.log(error);
+    res.send(error.message);
   }
 }
-export function getPropertyOfSpecificType(req: Request, res: Response) {
-    try {
-        const {type} = req.query
-        pool.query(
-            "SELECT property.*, email, phoneNumber FROM users JOIN property ON users.id = property.owner WHERE type = $1",
-            [type],
-            (error, result) => {
-              if (error) {
-                throw error;
-              }
-              return res.send({
-                status: "success",
-                data: result.rows,
-              });
-            });
-    } catch (error) {
-        console.log(error);
+
+export async function updateStatus(
+  req: RequestExtended,
+  res: Response
+): Promise<any> {
+  try {
+    const propertyId: string = req.params.id;
+    const { id }: user = req.user as user;
+
+    const foundProperty = await Property.findOne({where:{id:propertyId,owner:id}})
+    if (!foundProperty) {
+        return res.send("This property does not exist");
     }
-}
-
-
-export function updateStatus(req: any, res: Response) {
-   try {
-        const propertyId = req.params.id;
-        const { id } = req.user;
-        
-        pool.query(`UPDATE property SET status=$1 WHERE owner=$2 AND id=$3`, [
-            "sold",
-            id,
-            propertyId,
-           ],(error, result) => {
-            if (error) {
-                console.log(error);
-                throw error;
-            }
-            
-            if (result.rowCount > 0) {
-                return res.send({
-                status: "success",
-                });
-            } 
-            else {
-                return "update failed";
-            }
-        }) 
-   } catch (error) {
-    console.log(error); 
-   } 
-  
-    
+    const property: any = await Property.update({status:"sold"},{where:{id:propertyId,owner:id}});
+    if (property) {
+      return res.status(200).send({
+        status: "success",
+    });
+    } else {
+      return "update failed";
+    }
+  } catch (error: any) {
+    console.log(error);
+    res.send(error.message);
+  }
 }
